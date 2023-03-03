@@ -6,6 +6,7 @@
 
 import requests
 import pandas as pd
+import datetime
 import time
 import logging
 from typing import Optional, Dict
@@ -118,8 +119,10 @@ class TernaPandasClient:
                     key = list(json.keys())[0]
                     df = pd.json_normalize(json[key])
                     if 'Date' in df.columns:
+                        df['Date'] = pd.to_datetime(df['Date'])
+                        df['Date'] = df['Date'].map(lambda x: adjust_tz(x, tz="Europe/Rome"))
                         df.sort_values(by='Date', inplace=True)
-                        df.index = pd.to_datetime(df['Date'])
+                        df.index = df['Date']
                         df.index.name = None
                         df.drop(columns=['Date'], inplace=True)
                     elif 'Year' in df.columns:
@@ -304,5 +307,12 @@ class TernaPandasClient:
 
         df = self._base_request(item, data)
         return df
+    
+def adjust_tz(dt, tz):
+    delta = dt.minute % 15
+    if delta == 0:
+        return dt.tz_localize(tz, ambiguous=True)
+    else:
+        return (dt - datetime.timedelta(minutes=delta+15*(4-delta))).tz_localize(tz, ambiguous=False)
         
         
