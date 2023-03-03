@@ -13,7 +13,7 @@ from typing import Optional, Dict
 from urllib.parse import urlencode
 
 __title__ = "terna-py"
-__version__ = "0.2.0b1"
+__version__ = "0.3.0"
 __author__ = "fgenoese"
 __license__ = "MIT"
 

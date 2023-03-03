@@ -2,7 +2,7 @@
 Python client for the Transparency API of Terna, the Italian electricity transmission system operator
 
 [![PyPI Latest Release](https://img.shields.io/pypi/v/terna-py.svg)](https://pypi.org/project/terna-py/)
-
+[![Downloads](https://static.pepy.tech/badge/terna-py)](https://pypi.org/project/terna-py/)
 
 Documentation of the API: https://developer.terna.it/docs/read/APIs_catalog#en
 

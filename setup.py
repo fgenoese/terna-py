@@ -47,8 +47,7 @@ setup(
 
     packages=['terna'],
 
-    # List run-time dependencies here.  These will be installed by pip when
-    # your project is installed.
+    # List run-time dependencies here.  These will be installed by pip when your project is installed.
     install_requires=['requests', 'pandas'],
 
     include_package_data=True,
