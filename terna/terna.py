@@ -13,7 +13,7 @@ from typing import Optional, Dict
 from urllib.parse import urlencode
 
 __title__ = "terna-py"
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __author__ = "fgenoese"
 __license__ = "MIT"
 
@@ -45,6 +45,9 @@ class TernaPandasClient:
         self.session = session
         self.proxies = proxies
         self.timeout = timeout
+        self.token = None
+        self.token_expiration = datetime.datetime.now()
+        self.time_elapsed = time.monotonic() - 1
 
     def _request_token(self, data: Dict = {}) -> str:
         """
@@ -56,6 +59,9 @@ class TernaPandasClient:
         -------
         access_token : str
         """
+        
+        if self.token_expiration + datetime.timedelta(seconds=5) < datetime.datetime.now() and self.token:
+            return self.token
 
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded'
@@ -68,19 +74,26 @@ class TernaPandasClient:
         data.update(base_data)
 
         try:
+            if time.monotonic() - self.time_elapsed < 1:
+                time.sleep(time.monotonic() - self.time_elapsed)
             response = self.session.post(URL, headers=headers, data=data)
+            self.time_elapsed = time.monotonic()
             response.raise_for_status()
 
         except requests.HTTPError as exc:
             code = exc.response.status_code
+            print(response.text)
             if code in [429, 500, 502, 503, 504]:
                 logging.debug(code)
             raise
         
         else:
             if response.status_code == 200:
-                time.sleep(1)
-                return response.json()['access_token']
+                token = response.json()['access_token']
+                expires_in = response.json()['expires_in']
+                self.token_expiration = datetime.datetime.now() + datetime.timedelta(seconds=expires_in)
+                self.token = token
+                return token
             else:
                 return None
     
@@ -102,7 +115,10 @@ class TernaPandasClient:
         logging.debug(_url)
         
         try:
+            if time.monotonic() - self.time_elapsed < 1:
+                time.sleep(time.monotonic() - self.time_elapsed)
             response = self.session.get(_url)
+            self.time_elapsed = time.monotonic()
             response.raise_for_status()
 
         except requests.HTTPError as exc:
