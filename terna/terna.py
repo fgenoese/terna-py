@@ -13,7 +13,7 @@ from typing import Optional, Dict
 from urllib.parse import urlencode
 
 __title__ = "terna-py"
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 __author__ = "fgenoese"
 __license__ = "MIT"
 
@@ -47,7 +47,7 @@ class TernaPandasClient:
         self.timeout = timeout
         self.token = None
         self.token_expiration = datetime.datetime.now()
-        self.time_elapsed = time.monotonic() - 1
+        self.time_of_last_request = time.monotonic() - 1
 
     def _request_token(self, data: Dict = {}) -> str:
         """
@@ -74,10 +74,12 @@ class TernaPandasClient:
         data.update(base_data)
 
         try:
-            if time.monotonic() - self.time_elapsed < 1:
-                time.sleep(time.monotonic() - self.time_elapsed)
+            time_elapsed = time.monotonic() - self.time_of_last_request
+            print(time_elapsed)
+            if time_elapsed < 1.05:
+                time.sleep(1.05-time_elapsed)
             response = self.session.post(URL, headers=headers, data=data)
-            self.time_elapsed = time.monotonic()
+            self.time_of_last_request = time.monotonic()
             response.raise_for_status()
 
         except requests.HTTPError as exc:
@@ -115,10 +117,11 @@ class TernaPandasClient:
         logging.debug(_url)
         
         try:
-            if time.monotonic() - self.time_elapsed < 1:
-                time.sleep(time.monotonic() - self.time_elapsed)
+            time_elapsed = time.monotonic() - self.time_of_last_request
+            if time_elapsed < 1.05:
+                time.sleep(1.05-time_elapsed)
             response = self.session.get(_url)
-            self.time_elapsed = time.monotonic()
+            self.time_of_last_request = time.monotonic()
             response.raise_for_status()
 
         except requests.HTTPError as exc:
