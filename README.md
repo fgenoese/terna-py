@@ -24,13 +24,17 @@ start = pd.Timestamp("20210101", tz='Europe/Rome')
 end = pd.Timestamp("20210131", tz='Europe/Rome')
 bzone = ['NORD', 'CNOR', 'SUD', 'CSUD', 'SARD', 'SICI', 'CALA', 'Italy']
 gen_type = ['Thermal', 'Wind', 'Geothermal', 'Photovoltaic', 'Self-consumption', 'Hydro']
+res_gen_type = ['Wind', 'Geothermal', 'Photovoltaic', 'Hydro']
+type = ['Thermal', 'Wind', 'Geothermal', 'Photovoltaic', 'Self-consumption', 'Hydro', 'Pumping-consumption', 'Net Foreign Exchange']
 year = 2022
 
 # Note: all methods return Pandas DataFrames
 df_tload = client.get_total_load(start=start, end=end, bzone=bzone)
 df_mload = client.get_market_load(start=start, end=end, bzone=bzone)
 
-df_gen = client.get_actual_generation(start=start, end=end, gen_type=gen_type)
+df_act_gen = client.get_actual_generation(start=start, end=end, gen_type=gen_type)
+df_res_gen = client.get_renewable_generation(start=start, end=end, res_gen_type=res_gen_type)
+df_ener_bal = client.get_energy_balance(start=start, end=end, type=gen_type)
 df_cap = client.get_installed_capacity(year=year, gen_type=gen_type)
 
 df_xborderschedule = client.get_scheduled_foreign_exchange(start=start, end=end)

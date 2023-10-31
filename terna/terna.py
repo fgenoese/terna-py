@@ -13,7 +13,7 @@ from typing import Optional, Dict
 from urllib.parse import urlencode
 
 __title__ = "terna-py"
-__version__ = "0.3.2"
+__version__ = "0.4.0"
 __author__ = "fgenoese"
 __license__ = "MIT"
 
@@ -75,7 +75,6 @@ class TernaPandasClient:
 
         try:
             time_elapsed = time.monotonic() - self.time_of_last_request
-            print(time_elapsed)
             if time_elapsed < 1.05:
                 time.sleep(1.05-time_elapsed)
             response = self.session.post(URL, headers=headers, data=data)
@@ -84,7 +83,7 @@ class TernaPandasClient:
 
         except requests.HTTPError as exc:
             code = exc.response.status_code
-            print(response.text)
+            logging.debug(response.text)
             if code in [429, 500, 502, 503, 504]:
                 logging.debug(code)
             raise
@@ -126,7 +125,7 @@ class TernaPandasClient:
 
         except requests.HTTPError as exc:
             code = exc.response.status_code
-            print(response.text)
+            logging.debug(response.text)
             if code in [429, 500, 502, 503, 504]:
                 logging.debug(code)
             raise
@@ -219,6 +218,52 @@ class TernaPandasClient:
             'type': gen_type
         }
         item = 'getactualgeneration'
+
+        df = self._base_request(item, data)
+        return df
+    
+    def get_renewable_generation(self, start: pd.Timestamp, end: pd.Timestamp, res_gen_type: str) -> pd.DataFrame:
+        """
+        Parameters
+        ----------
+        start : pd.Timestamp
+        end : pd.Timestamp
+        res_gen_type : str
+        
+        Returns
+        -------
+        pd.DataFrame
+        """
+        
+        data = {
+            'dateFrom': start.strftime('%d/%m/%Y'),
+            'dateTo': end.strftime('%d/%m/%Y'),
+            'type': res_gen_type
+        }
+        item = 'getrenewablegeneration'
+
+        df = self._base_request(item, data)
+        return df
+    
+    def get_energy_balance(self, start: pd.Timestamp, end: pd.Timestamp, type: str) -> pd.DataFrame:
+        """
+        Parameters
+        ----------
+        start : pd.Timestamp
+        end : pd.Timestamp
+        type : str
+        
+        Returns
+        -------
+        pd.DataFrame
+        """
+        
+        data = {
+            'dateFrom': start.strftime('%d/%m/%Y'),
+            'dateTo': end.strftime('%d/%m/%Y'),
+            'type': type
+        }
+        item = 'getenergybalance'
 
         df = self._base_request(item, data)
         return df
