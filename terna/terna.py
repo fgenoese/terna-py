@@ -9,21 +9,23 @@ import pandas as pd
 import datetime
 import time
 import logging
+import sys
 from typing import Optional, Dict
 from urllib.parse import urlencode
 
 __title__ = "terna-py"
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __author__ = "fgenoese"
 __license__ = "MIT"
 
-URL = 'https://api.terna.it/transparency/oauth/accessToken'
-BASE_URL = 'https://api.terna.it/transparency/v1.0/'
+URL = 'https://api.terna.it/public-api/access-token'
+BASE_URL = 'https://api.terna.it/'
 
 class TernaPandasClient:
     def __init__(
             self, api_key: str, api_secret: str, session: Optional[requests.Session] = None,
-            proxies: Optional[Dict] = None, timeout: Optional[int] = None):
+            proxies: Optional[Dict] = None, timeout: Optional[int] = None,
+            log_level: Optional[int] = logging.ERROR):
         """
         Parameters
         ----------
@@ -33,7 +35,23 @@ class TernaPandasClient:
         proxies : dict
             requests proxies
         timeout : int
+        log_level : int, optional
+            Logging level (default: logging.ERROR)
         """
+        
+        # Set up logger
+        log = logging.getLogger(__name__)
+        log.setLevel(log_level)
+        log.propagate = False  # prevent double logging
+        if not log.handlers:
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setLevel(log_level)
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            log.addHandler(handler)
+        self.logger = log
+        self.logger.debug("Client initialized with log level %s", logging.getLevelName(log_level))
+        
         if api_key is None:
             raise TypeError("API key cannot be None")
         if api_secret is None:
@@ -80,12 +98,12 @@ class TernaPandasClient:
             response = self.session.post(URL, headers=headers, data=data)
             self.time_of_last_request = time.monotonic()
             response.raise_for_status()
+            self.logger.debug(response.text)
 
         except requests.HTTPError as exc:
             code = exc.response.status_code
-            logging.debug(response.text)
             if code in [429, 500, 502, 503, 504]:
-                logging.debug(code)
+                self.logger.error(code)
             raise
         
         else:
@@ -113,7 +131,7 @@ class TernaPandasClient:
         data.update({'access_token': access_token})
         params = urlencode(data, doseq=True)
         _url =  "{}{}?{}".format(BASE_URL, item, params)
-        logging.debug(_url)
+        self.logger.debug(_url)
         
         try:
             time_elapsed = time.monotonic() - self.time_of_last_request
@@ -122,12 +140,12 @@ class TernaPandasClient:
             response = self.session.get(_url)
             self.time_of_last_request = time.monotonic()
             response.raise_for_status()
+            self.logger.debug(response.text)
 
         except requests.HTTPError as exc:
             code = exc.response.status_code
-            logging.debug(response.text)
             if code in [429, 500, 502, 503, 504]:
-                logging.debug(code)
+                self.logger.error(code)
             raise
         else:
             if response.status_code == 200:
@@ -138,7 +156,7 @@ class TernaPandasClient:
                     df = pd.json_normalize(json[key])
                     if 'Date' in df.columns:
                         df['Date'] = pd.to_datetime(df['Date'])
-                        df['Date'] = df['Date'].map(lambda x: adjust_tz(x, tz="Europe/Rome"))
+                        df['Date'] = df['Date'].map(lambda x: TernaPandasClient._adjust_tz(x, tz="Europe/Rome"))
                         df.sort_values(by='Date', inplace=True)
                         df.index = df['Date']
                         df.index.name = None
@@ -166,12 +184,10 @@ class TernaPandasClient:
         pd.DataFrame
         """
         
-        data = {
-            'dateFrom': start.strftime('%d/%m/%Y'),
-            'dateTo': end.strftime('%d/%m/%Y'),
-            'biddingZone': bzone
-        }
-        item = 'gettotalload'
+        data = TernaPandasClient._build_date_range_payload(start, end)
+        data.update({'biddingZone': bzone})
+
+        item = 'load/v2.0/total-load'
 
         df = self._base_request(item, data)
         return df
@@ -189,12 +205,10 @@ class TernaPandasClient:
         pd.DataFrame
         """
         
-        data = {
-            'dateFrom': start.strftime('%d/%m/%Y'),
-            'dateTo': end.strftime('%d/%m/%Y'),
-            'biddingZone': bzone
-        }
-        item = 'getmarketload'
+        data = TernaPandasClient._build_date_range_payload(start, end)
+        data.update({'biddingZone': bzone})
+
+        item = 'load/v2.0/market-load'
 
         df = self._base_request(item, data)
         return df
@@ -211,13 +225,11 @@ class TernaPandasClient:
         -------
         pd.DataFrame
         """
-        
-        data = {
-            'dateFrom': start.strftime('%d/%m/%Y'),
-            'dateTo': end.strftime('%d/%m/%Y'),
-            'type': gen_type
-        }
-        item = 'getactualgeneration'
+
+        item = 'generation/v2.0/actual-generation'
+
+        data = TernaPandasClient._build_date_range_payload(start, end)
+        data.update({'type': gen_type})
 
         df = self._base_request(item, data)
         return df
@@ -234,13 +246,11 @@ class TernaPandasClient:
         -------
         pd.DataFrame
         """
-        
-        data = {
-            'dateFrom': start.strftime('%d/%m/%Y'),
-            'dateTo': end.strftime('%d/%m/%Y'),
-            'type': res_gen_type
-        }
-        item = 'getrenewablegeneration'
+
+        item = 'generation/v2.0/renewable-generation'
+
+        data = TernaPandasClient._build_date_range_payload(start, end)
+        data.update({'type': res_gen_type})
 
         df = self._base_request(item, data)
         return df
@@ -257,13 +267,11 @@ class TernaPandasClient:
         -------
         pd.DataFrame
         """
+
+        item = 'generation/v2.0/energy-balance'
         
-        data = {
-            'dateFrom': start.strftime('%d/%m/%Y'),
-            'dateTo': end.strftime('%d/%m/%Y'),
-            'type': type
-        }
-        item = 'getenergybalance'
+        data = TernaPandasClient._build_date_range_payload(start, end)
+        data.update({'type': type})
 
         df = self._base_request(item, data)
         return df
@@ -279,11 +287,12 @@ class TernaPandasClient:
         pd.DataFrame
         """
         
+        item = 'generation/v2.0/installed-capacity'
+
         data = {
             'year': year,
             'type': gen_type
         }
-        item = 'getinstalledcapacity'
 
         df = self._base_request(item, data)
         return df
@@ -299,12 +308,10 @@ class TernaPandasClient:
         -------
         pd.DataFrame
         """
-        
-        data = {
-            'dateFrom': start.strftime('%d/%m/%Y'),
-            'dateTo': end.strftime('%d/%m/%Y'),
-        }
-        item = 'getscheduledforeignexchange'
+
+        item = 'transmission/v2.0/scheduled-foreign-exchange'
+
+        data = TernaPandasClient._build_date_range_payload(start, end)
 
         df = self._base_request(item, data)
         return df
@@ -321,11 +328,9 @@ class TernaPandasClient:
         pd.DataFrame
         """
         
-        data = {
-            'dateFrom': start.strftime('%d/%m/%Y'),
-            'dateTo': end.strftime('%d/%m/%Y'),
-        }
-        item = 'getscheduledinternalexchange'
+        item = 'transmission/v2.0/scheduled-internal-exchange'
+
+        data = TernaPandasClient._build_date_range_payload(start, end)
 
         df = self._base_request(item, data)
         return df
@@ -342,11 +347,9 @@ class TernaPandasClient:
         pd.DataFrame
         """
         
-        data = {
-            'dateFrom': start.strftime('%d/%m/%Y'),
-            'dateTo': end.strftime('%d/%m/%Y'),
-        }
-        item = 'getphysicalforeignflow'
+        item = 'transmission/v2.0/physical-foreign-flow'
+
+        data = TernaPandasClient._build_date_range_payload(start, end)
 
         df = self._base_request(item, data)
         return df
@@ -363,20 +366,49 @@ class TernaPandasClient:
         pd.DataFrame
         """
         
-        data = {
-            'dateFrom': start.strftime('%d/%m/%Y'),
-            'dateTo': end.strftime('%d/%m/%Y'),
-        }
-        item = 'getphysicalinternalflow'
+        item = 'transmission/v2.0/physical-internal-flow'
+
+        data = TernaPandasClient._build_date_range_payload(start, end)
 
         df = self._base_request(item, data)
         return df
+
+    @staticmethod
+    def _build_date_range_payload(start: pd.Timestamp, end: pd.Timestamp) -> dict:
+        """
+        Internal helper to build a date range dictionary formatted as 'DD/MM/YYYY'.
+
+        Parameters
+        ----------
+        start : pd.Timestamp
+        end : pd.Timestamp
+
+        Returns
+        -------
+        dict
+            A dictionary with formatted 'dateFrom' and 'dateTo' strings.
+        """
+        return {
+            'dateFrom': start.strftime('%d/%m/%Y'),
+            'dateTo': end.strftime('%d/%m/%Y'),
+        }
+
+    @staticmethod
+    def _adjust_tz(dt, tz):
+        delta = dt.minute % 15
+        if delta == 0:
+            return dt.tz_localize(tz, ambiguous=True)
+        else:
+            return (dt - datetime.timedelta(minutes=delta+15*(4-delta))).tz_localize(tz, ambiguous=False)
+
+    def __repr__(self):
+        return f"<TernaPandasClient(api_key={self.api_key[:4]}***, api_secret={self.api_secret[:4]}***)>"
     
-def adjust_tz(dt, tz):
-    delta = dt.minute % 15
-    if delta == 0:
-        return dt.tz_localize(tz, ambiguous=True)
-    else:
-        return (dt - datetime.timedelta(minutes=delta+15*(4-delta))).tz_localize(tz, ambiguous=False)
+
+
+
+
+
+
         
         

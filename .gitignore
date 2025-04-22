@@ -132,3 +132,4 @@ dmypy.json
 *.json
 test.ipynb
 test.py
+*.parquet

@@ -34,7 +34,7 @@ df_mload = client.get_market_load(start=start, end=end, bzone=bzone)
 
 df_act_gen = client.get_actual_generation(start=start, end=end, gen_type=gen_type)
 df_res_gen = client.get_renewable_generation(start=start, end=end, res_gen_type=res_gen_type)
-df_ener_bal = client.get_energy_balance(start=start, end=end, type=gen_type)
+df_ener_bal = client.get_energy_balance(start=start, end=end, type=type)
 df_cap = client.get_installed_capacity(year=year, gen_type=gen_type)
 
 df_xborderschedule = client.get_scheduled_foreign_exchange(start=start, end=end)
