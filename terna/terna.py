@@ -18,7 +18,7 @@ __version__ = "0.5.0"
 __author__ = "fgenoese"
 __license__ = "MIT"
 
-URL = 'https://api.terna.it/public-api/access-token'
+URL = 'https://api.terna.it/transparency/oauth/accessToken'
 BASE_URL = 'https://api.terna.it/'
 
 class TernaPandasClient:
@@ -108,12 +108,13 @@ class TernaPandasClient:
         
         else:
             if response.status_code == 200:
-                token = response.json()['access_token']
-                expires_in = response.json()['expires_in']
+                token = response.json().get('access_token')
+                expires_in = response.json().get('expires_in')
                 self.token_expiration = datetime.datetime.now() + datetime.timedelta(seconds=expires_in)
                 self.token = token
                 return token
             else:
+                self.logger.error(f"Request failed with status code {response.status_code}")
                 return None
     
     def _base_request(self, item, data: Dict) -> pd.DataFrame:
@@ -128,16 +129,19 @@ class TernaPandasClient:
         """
 
         access_token = self._request_token()
-        data.update({'access_token': access_token})
         params = urlencode(data, doseq=True)
-        _url =  "{}{}?{}".format(BASE_URL, item, params)
+        headers = {
+            'accept': 'application/json',
+            'Authorization': f'Bearer {access_token}'
+        }
+        _url = "{}{}".format(BASE_URL, item)
         self.logger.debug(_url)
         
         try:
             time_elapsed = time.monotonic() - self.time_of_last_request
             if time_elapsed < 1.05:
                 time.sleep(1.05-time_elapsed)
-            response = self.session.get(_url)
+            response = self.session.get(_url, headers=headers, params=params)
             self.time_of_last_request = time.monotonic()
             response.raise_for_status()
             self.logger.debug(response.text)
@@ -169,6 +173,7 @@ class TernaPandasClient:
                 else:
                     return None
             else:
+                self.logger.error(f"Request failed with status code {response.status_code}")
                 return None
     
     def get_total_load(self, start: pd.Timestamp, end: pd.Timestamp, bzone: str) -> pd.DataFrame:
