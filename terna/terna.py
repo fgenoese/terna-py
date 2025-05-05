@@ -14,7 +14,7 @@ from typing import Optional, Dict
 from urllib.parse import urlencode
 
 __title__ = "terna-py"
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 __author__ = "fgenoese"
 __license__ = "MIT"
 
