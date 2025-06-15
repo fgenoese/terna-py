@@ -14,12 +14,13 @@ from typing import Optional, Dict
 from urllib.parse import urlencode
 
 __title__ = "terna-py"
-__version__ = "0.5.1"
+__version__ = "0.5.2"
 __author__ = "fgenoese"
 __license__ = "MIT"
 
 URL = 'https://api.terna.it/transparency/oauth/accessToken'
 BASE_URL = 'https://api.terna.it/'
+RATE_LIMIT = 1.1  # seconds between requests to respect the rate limit
 
 class TernaPandasClient:
     def __init__(
@@ -93,8 +94,9 @@ class TernaPandasClient:
 
         try:
             time_elapsed = time.monotonic() - self.time_of_last_request
-            if time_elapsed < 1.05:
-                time.sleep(1.05-time_elapsed)
+            if time_elapsed < RATE_LIMIT:
+                self.logger.debug("[token] Waiting for %.2f seconds to respect rate limit", RATE_LIMIT - time_elapsed)
+                time.sleep(RATE_LIMIT - time_elapsed)
             response = self.session.post(URL, headers=headers, data=data)
             self.time_of_last_request = time.monotonic()
             response.raise_for_status()
@@ -134,22 +136,23 @@ class TernaPandasClient:
             'accept': 'application/json',
             'Authorization': f'Bearer {access_token}'
         }
-        _url = "{}{}".format(BASE_URL, item)
-        self.logger.debug(_url)
+        _url = f"{BASE_URL}{item}"
+        self.logger.debug("API endpoint: " + _url)
         
         try:
             time_elapsed = time.monotonic() - self.time_of_last_request
-            if time_elapsed < 1.05:
-                time.sleep(1.05-time_elapsed)
+            if time_elapsed < RATE_LIMIT:
+                self.logger.debug("[base request] Waiting for %.2f seconds to respect rate limit", RATE_LIMIT - time_elapsed)
+                time.sleep(RATE_LIMIT - time_elapsed)
             response = self.session.get(_url, headers=headers, params=params)
             self.time_of_last_request = time.monotonic()
             response.raise_for_status()
-            self.logger.debug(response.text)
+            self.logger.debug(response.text[:500])
 
         except requests.HTTPError as exc:
             code = exc.response.status_code
             if code in [429, 500, 502, 503, 504]:
-                self.logger.error(code)
+                self.logger.error(f"Request failed with status code {code}")
             raise
         else:
             if response.status_code == 200:
@@ -168,7 +171,11 @@ class TernaPandasClient:
                     elif 'Year' in df.columns:
                         df.index = df['Year']
                         df.drop(columns=['Year'], inplace=True)
-                    df = df.apply(pd.to_numeric, errors='ignore')
+                    for col in df.columns:
+                        try:
+                            df[col] = pd.to_numeric(df[col])
+                        except (ValueError, TypeError):
+                            pass
                     return df
                 else:
                     return None
@@ -409,11 +416,4 @@ class TernaPandasClient:
     def __repr__(self):
         return f"<TernaPandasClient(api_key={self.api_key[:4]}***, api_secret={self.api_secret[:4]}***)>"
     
-
-
-
-
-
-
-        
-        
+     
