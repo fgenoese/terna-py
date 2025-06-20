@@ -14,7 +14,7 @@ from typing import Optional, Dict
 from urllib.parse import urlencode
 
 __title__ = "terna-py"
-__version__ = "0.5.4"
+__version__ = "0.5.5"
 __author__ = "fgenoese"
 __license__ = "MIT"
 
@@ -165,7 +165,10 @@ class TernaPandasClient:
                     json.pop('result')
                     key = list(json.keys())[0]
                     df = pd.json_normalize(json[key])
-                    if 'Date' in df.columns:
+                    # Normalize column name to 'Date' if 'date' exists
+                    if 'date' in df.columns and 'Date' not in df.columns:
+                        df.rename(columns={'date': 'Date'}, inplace=True)
+                    if 'Date' in df.columns or 'date' in df.columns:
                         df['Date'] = pd.to_datetime(df['Date'])
                         df['Date'] = df['Date'].map(lambda x: TernaPandasClient._adjust_tz(x, tz="Europe/Rome"))
                         df.sort_values(by='Date', inplace=True)
