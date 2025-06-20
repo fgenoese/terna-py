@@ -22,7 +22,7 @@ client = trn.TernaPandasClient(api_key=key,api_secret=secret)
 # Note: you specifically need to set a start= and end= parameter which should be a pandas timestamp with timezone
 start = pd.Timestamp("20210101", tz='Europe/Rome')
 end = pd.Timestamp("20210131", tz='Europe/Rome')
-bzone = ['NORD', 'CNOR', 'SUD', 'CSUD', 'SARD', 'SICI', 'CALA', 'Italy']
+bzone = ["Centre-North", "Centre-South", "North", "Sardinia", "Sicily", "South", "Calabria", "Italy"]
 gen_type = ['Thermal', 'Wind', 'Geothermal', 'Photovoltaic', 'Self-consumption', 'Hydro']
 res_gen_type = ['Wind', 'Geothermal', 'Photovoltaic', 'Hydro']
 type = ['Thermal', 'Wind', 'Geothermal', 'Photovoltaic', 'Self-consumption', 'Hydro', 'Pumping-consumption', 'Net Foreign Exchange']

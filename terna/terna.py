@@ -14,7 +14,7 @@ from typing import Optional, Dict
 from urllib.parse import urlencode
 
 __title__ = "terna-py"
-__version__ = "0.5.2"
+__version__ = "0.5.4"
 __author__ = "fgenoese"
 __license__ = "MIT"
 
@@ -78,8 +78,8 @@ class TernaPandasClient:
         -------
         access_token : str
         """
-        
-        if self.token_expiration + datetime.timedelta(seconds=5) < datetime.datetime.now() and self.token:
+        # keep current token if still valid
+        if self.token_expiration - datetime.timedelta(seconds=5) > datetime.datetime.now() and self.token:
             return self.token
 
         headers = {
@@ -100,7 +100,7 @@ class TernaPandasClient:
             response = self.session.post(URL, headers=headers, data=data)
             self.time_of_last_request = time.monotonic()
             response.raise_for_status()
-            self.logger.debug(response.text)
+            self.logger.debug(f"Response content: {response.text}")
 
         except requests.HTTPError as exc:
             code = exc.response.status_code
@@ -131,23 +131,27 @@ class TernaPandasClient:
         """
 
         access_token = self._request_token()
-        params = urlencode(data, doseq=True)
+        #params = urlencode(data, doseq=True)
         headers = {
             'accept': 'application/json',
             'Authorization': f'Bearer {access_token}'
         }
         _url = f"{BASE_URL}{item}"
         self.logger.debug("API endpoint: " + _url)
+        self.logger.debug(f"Request data: {data}")
         
         try:
             time_elapsed = time.monotonic() - self.time_of_last_request
             if time_elapsed < RATE_LIMIT:
                 self.logger.debug("[base request] Waiting for %.2f seconds to respect rate limit", RATE_LIMIT - time_elapsed)
                 time.sleep(RATE_LIMIT - time_elapsed)
-            response = self.session.get(_url, headers=headers, params=params)
+            response = self.session.get(_url, headers=headers, params=data)
+            self.logger.debug(f"Request URL: {response.url}")
             self.time_of_last_request = time.monotonic()
             response.raise_for_status()
-            self.logger.debug(response.text[:500])
+            self.logger.debug(f"Response status: {response.status_code}")
+            self.logger.debug(f"Response headers: {response.headers}")
+            self.logger.debug(f"Response content: {response.text[:500]}")
 
         except requests.HTTPError as exc:
             code = exc.response.status_code
