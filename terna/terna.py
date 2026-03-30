@@ -14,13 +14,13 @@ from typing import Optional, Dict
 from urllib.parse import urlencode
 
 __title__ = "terna-py"
-__version__ = "0.5.5"
+__version__ = "0.5.6"
 __author__ = "fgenoese"
 __license__ = "MIT"
 
 URL = 'https://api.terna.it/transparency/oauth/accessToken'
 BASE_URL = 'https://api.terna.it/'
-RATE_LIMIT = 1.1  # seconds between requests to respect the rate limit
+RATE_LIMIT = 1.05  # seconds between requests to respect the rate limit
 
 class TernaPandasClient:
     def __init__(
@@ -66,7 +66,7 @@ class TernaPandasClient:
         self.timeout = timeout
         self.token = None
         self.token_expiration = datetime.datetime.now()
-        self.time_of_last_request = time.monotonic() - 1
+        self.time_of_last_request = time.monotonic() - 0.5
 
     def _request_token(self, data: Dict = {}) -> str:
         """
@@ -163,7 +163,12 @@ class TernaPandasClient:
                 json = response.json()
                 if 'result' in json:
                     json.pop('result')
-                    key = list(json.keys())[0]
+                    key = next(iter(json), None)
+                    if key is None:
+                        # extract message from original response (result may have been popped)
+                        msg = response.json().get('result', {}).get('message')
+                        self.logger.info("API returned no data: %s", msg[:500])
+                        return None
                     df = pd.json_normalize(json[key])
                     # Normalize column name to 'Date' if 'date' exists
                     if 'date' in df.columns and 'Date' not in df.columns:
@@ -189,6 +194,21 @@ class TernaPandasClient:
             else:
                 self.logger.error(f"Request failed with status code {response.status_code}")
                 return None
+    
+    def get_custom_item(self, item: str, data: Dict) -> pd.DataFrame:
+        """
+        Parameters
+        ----------
+        item : str
+        data : dict
+        
+        Returns
+        -------
+        pd.DataFrame
+        """
+        
+        df = self._base_request(item, data)
+        return df
     
     def get_total_load(self, start: pd.Timestamp, end: pd.Timestamp, bzone: str) -> pd.DataFrame:
         """
